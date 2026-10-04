@@ -7,7 +7,9 @@ ARG MAX_JOBS=4
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       python3 python3-venv python3-dev build-essential git ca-certificates curl \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && (getent group 102 || groupadd -g 102 kyojin) \
+ && useradd -u 101 -g 102 -M -d /tmp -s /usr/sbin/nologin kyojin
 
 WORKDIR /opt/kyojin
 ENV EXL3_ROOT=/opt/kyojin \
@@ -41,4 +43,6 @@ RUN set -eux; \
 # build must preload the devel SDK's copy instead.
 ENV EXL3_HSA_LIB=$HSA_LIB
 COPY docker/serve.sh /usr/local/bin/kyojin-serve
+# torch resolves its cache dir from the passwd entry, so the uid needs one.
+USER 101:102
 ENTRYPOINT ["/usr/local/bin/kyojin-serve"]
