@@ -6,6 +6,8 @@
 #               config.json yet (optional)
 #   LANE_STATE  writable scratch dir: tune cache, slots, tmp (default /tmp/lane)
 #   PORT        listen port (default 8000)
+#   GLM_EH_REPO repo holding GLM's unquantized MTP eh_proj; fetched into
+#               LANE_STATE for EXL3_MTP_EH_FP16 (default zai-org/GLM-5.3-Flash)
 set -euo pipefail
 lane=${1:?usage: kyojin-serve <glm|mimo> [args...]}; shift
 : "${MODEL_DIR:?set MODEL_DIR}"
@@ -18,7 +20,15 @@ if [ ! -f "$MODEL_DIR/config.json" ]; then
 fi
 
 case "$lane" in
-  glm)  export GLM_MODEL=$MODEL_DIR ;;
+  glm)
+    export GLM_MODEL=$MODEL_DIR
+    # serve.py expects this sidecar and the published packs do not include it.
+    export EXL3_MTP_EH_FP16=${EXL3_MTP_EH_FP16:-$LANE_STATE/glm53-mtp-eh-proj-bf16.safetensors}
+    if [ "$EXL3_MTP_EH_FP16" != 0 ] && [ ! -f "$EXL3_MTP_EH_FP16" ]; then
+      /opt/kyojin/.venv/bin/python /opt/kyojin/docker/glm_eh_sidecar.py \
+        "${GLM_EH_REPO:-zai-org/GLM-5.3-Flash}" "$EXL3_MTP_EH_FP16"
+    fi
+    ;;
   mimo) export MIMO_MODEL=$MODEL_DIR ;;
   *) echo "kyojin-serve: unknown lane $lane" >&2; exit 2 ;;
 esac

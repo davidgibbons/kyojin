@@ -36,12 +36,18 @@ def _compile(defs, arch):
     return cache
 
 
+def _hip_runtime():
+    # ROCm SDK wheels keep the runtime in _rocm_sdk_core, not torch/lib; torch has it loaded under its soname.
+    p = os.path.join(os.path.dirname(torch.__file__), "lib", "libamdhip64.so")
+    return p if os.path.isfile(p) else "libamdhip64.so.7"
+
+
 def _load(defs=""):
     # defs: extra -D defines (timing experiments only, e.g. "ABL=4"); one module per defines string
     if defs in _state:
         return _state[defs]
     cache = _compile(defs, torch.cuda.get_device_properties(0).gcnArchName.split(":")[0])
-    lib = ctypes.CDLL(os.path.join(os.path.dirname(torch.__file__), "lib", "libamdhip64.so"))
+    lib = ctypes.CDLL(_hip_runtime())
     torch.cuda.init()
     mod, fn = ctypes.c_void_p(), ctypes.c_void_p()
     if lib.hipModuleLoad(ctypes.byref(mod), cache.encode()) != 0:
